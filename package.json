@@ -11,8 +11,11 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@conform-to/react": "^1.1.5",
+    "@conform-to/zod": "^1.1.5",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
+    "@epic-web/remember": "^1.1.0",
     "@faker-js/faker": "^8.4.1",
     "@mui/material": "^5.15.21",
     "@prisma/client": "^5.16.1",

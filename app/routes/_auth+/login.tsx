@@ -1,5 +1,12 @@
 import { Container, Stack, Typography, TextField, FormControlLabel, Checkbox, Button, styled } from "@mui/material";
-import { Link } from "@remix-run/react";
+import { z } from 'zod';
+import { useForm, getInputProps } from '@conform-to/react';
+import { parseWithZod, getZodConstraint } from '@conform-to/zod';
+import { Form, Link, redirect, useActionData } from "@remix-run/react";
+import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
+import { requireAnonymous, sessionKey, verifyUserWithPassword } from "~/utils/auth.server";
+import { sessionStorage } from "~/utils/session.server";
 
 const LoginContainer = styled(Container)({
     display: 'flex',
@@ -8,27 +15,118 @@ const LoginContainer = styled(Container)({
     height: '100vh',
 });
 
+const LoginSchema = z.object({
+    username: UserNameSchema,
+    password: PasswordSchema,
+    remember: z.boolean().optional(),
+  });
+
+export async function loader({request}: LoaderFunctionArgs) {
+    await requireAnonymous(request)
+
+    return {}
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+    const formData = await request.formData();
+    const submission = await parseWithZod(formData, {
+        schema: LoginSchema.transform(async (data, ctx) => {
+
+            const user = await verifyUserWithPassword(data.username, data.password)
+
+            if (!user) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Invalid username or password',
+                })
+
+                return z.NEVER
+            }
+
+            return {
+                ...data,
+                userId: user.id
+            }
+
+        }),
+        async: true,
+    });
+
+    // delete password hash
+    delete submission.payload.password
+
+    if (submission.status !== 'success') {
+        return submission.reply();
+    }
+
+    // set session in cookie then redirect users
+    const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))  
+    cookieSession.set(sessionKey, submission.value.userId)
+    
+
+    return redirect('/', {
+        headers: {
+            'set-cookie': await sessionStorage.commitSession(cookieSession)
+        }
+    })
+}
+
+function getFirstErrorText(errors: string[] | undefined) {
+    if (errors && errors.length > 0) {
+        return errors[0];
+    }
+
+    return ""
+}
+
 export default function LoginScreen() {
+
+    const actionData = useActionData<typeof action>()
+
+
+    const [form, fields] = useForm({
+        id: 'login-form',
+        shouldValidate: 'onBlur',
+        shouldRevalidate: 'onInput',
+        lastResult: actionData,
+        constraint: getZodConstraint(LoginSchema),
+        onValidate({ formData }) {
+          return parseWithZod(formData, { schema: LoginSchema });
+        },
+      });
+
     return (
       <LoginContainer>
         <Stack direction="column" spacing={2}>
             <Typography variant="h5" component="h1" textAlign="center">Login</Typography>
-            <form>
+            <Form id={form.id} onSubmit={form.onSubmit} method='POST'>
                 <Stack direction="column" spacing={3}>
-                    <TextField label="Username" variant="outlined" />
-                    <TextField label="Password" variant="outlined" />
+                    <TextField 
+                        {...getInputProps(fields.username, {type: "text"})} 
+                        helperText={getFirstErrorText(fields.username.errors)} 
+                        error={Boolean(fields.username.errors && fields.username.errors.length > 0 )} 
+                        label="Username" variant="outlined"    
+                    />
+                    <TextField 
+                        {...getInputProps(fields.password, {type: "password"})} 
+                        helperText={getFirstErrorText(fields.password.errors)} 
+                        error={Boolean(fields.password.errors && fields.password.errors.length > 0 )} 
+                        label="Password" 
+                        variant="outlined" 
+                    />
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <FormControlLabel control={<Checkbox defaultChecked />} label="Remember me" />
+                        <FormControlLabel control={<Checkbox {...getInputProps(fields.remember, {type: "checkbox"})} />} label="Remember me" />
                         <Link to="/">
                             <Typography variant="body1">Forgot password?</Typography>
                         </Link>
                     </Stack>
-                    <Button variant="contained">Login</Button>
+                    <Button type="submit" variant="contained">Login</Button>
                     <Link to="/">
                         <Typography variant="body1">Create an account</Typography>
                     </Link>
                 </Stack>
-            </form>
+            </Form>
+            {form.errors && <Typography color="error">{getFirstErrorText(form.errors)}</Typography>}
         </Stack>
       </LoginContainer>
     );

@@ -5,10 +5,24 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  json,
 } from "@remix-run/react";
 import { withEmotionCache } from '@emotion/react';
 import { unstable_useEnhancedEffect as useEnhancedEffect } from '@mui/material';
 import ClientStyleContext from './ClientStyleContext';
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { getUserId } from "./utils/auth.server";
+import { prisma } from "./utils/db.server";
+
+export async function loader({request}: LoaderFunctionArgs) {
+  const userId = await getUserId(request);
+  const user = userId ? await prisma.user.findUnique({
+    where: {id: userId},
+    select: {username: true, id: true}
+  }) : null
+
+  return json({user})
+}
 
 export const Layout = withEmotionCache(({ children }: {children: React.ReactNode}, emotionCache) => {
   const clientStyleData = React.useContext(ClientStyleContext);
