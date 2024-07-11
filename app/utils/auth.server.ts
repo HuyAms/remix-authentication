@@ -57,3 +57,14 @@ export async function verifyUserWithPassword(username: string, password: string)
         id: userWithPassword.id,
     }
 }
+
+export async function logout(request: Request) {
+    const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))
+    
+    throw redirect('/', {
+        headers: {
+            'set-cookie': await sessionStorage.destroySession(cookieSession),
+        }
+    })
+
+}

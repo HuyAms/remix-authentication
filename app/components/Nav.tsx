@@ -1,17 +1,16 @@
-import { Container, Divider, Stack, Typography } from "@mui/material";
-import { Link } from "@remix-run/react";
-import { useOptionalUser } from "~/utils/user";
+import { Container, Divider, Stack, Typography, Button } from "@mui/material";
+import { Form } from "@remix-run/react";
 
 export default function Nav() {
-
-    const optionalUser = useOptionalUser()
 
     return (
        <>
          <Container sx={{paddingY: '8px'}}>
             <Stack direction="row" justifyContent={"space-between"}>
                 <Typography component="h1">🚀</Typography>
-                {optionalUser ? (<Link to="/logout">Log out</Link>) : (<Link to="/login">Login</Link>)}
+               <Form method="POST" action="/logout">
+                <Button type="submit">Log out</Button>
+               </Form>
             </Stack>
         </Container>
         <Divider/>
