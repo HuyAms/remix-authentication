@@ -5,7 +5,7 @@ import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { Form, Link, redirect, useActionData } from "@remix-run/react";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
-import { requireAnonymous, sessionKey, verifyUserWithPassword } from "~/utils/auth.server";
+import { getSessionExpireDate, requireAnonymous, sessionKey, verifyUserWithPassword } from "~/utils/auth.server";
 import { sessionStorage } from "~/utils/session.server";
 
 const LoginContainer = styled(Container)({
@@ -62,11 +62,12 @@ export async function action({ request }: ActionFunctionArgs) {
     // set session in cookie then redirect users
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))  
     cookieSession.set(sessionKey, submission.value.userId)
-    
 
     return redirect('/', {
         headers: {
-            'set-cookie': await sessionStorage.commitSession(cookieSession)
+            'set-cookie': await sessionStorage.commitSession(cookieSession, {
+                expires: submission.value.remember ? getSessionExpireDate() : undefined,
+            })
         }
     })
 }

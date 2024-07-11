@@ -5,6 +5,13 @@ import { sessionStorage } from './session.server'
 
 export const sessionKey = 'sessionId'
 
+// 30 days
+const SESSION_EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 30
+
+export function getSessionExpireDate() {
+        return new Date(Date.now() + SESSION_EXPIRATION_TIME)
+}
+
 export async function getUserId(request: Request) {
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))
     const sessionId = cookieSession.get(sessionKey)
