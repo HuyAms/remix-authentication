@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const EmailSchema = z.string().email()
+
 export const UserNameSchema = z
     .string({
         required_error: 'Username is required',

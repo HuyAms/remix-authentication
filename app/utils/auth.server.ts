@@ -2,6 +2,7 @@ import { redirect } from '@remix-run/node'
 import bcrypt from 'bcryptjs'
 import {prisma} from '~/utils/db.server'
 import { sessionStorage } from './session.server'
+import { type User } from '@prisma/client'
 
 export const sessionKey = 'sessionId'
 
@@ -63,6 +64,41 @@ export async function verifyUserWithPassword(username: string, password: string)
     return {
         id: userWithPassword.id,
     }
+}
+
+export async function getPasswordHash(password: string) {
+	const hash = await bcrypt.hash(password, 10)
+	return hash
+}
+
+export async function signup({
+    username,
+    name,
+    password,
+    email
+}: {
+    username: User['username'],
+    name: User['name'],
+    email: User['email'],
+    password: string,
+}) {
+    const newUser = await prisma.user.create({
+        data: {
+            username,
+            name,
+            email,
+            password: {
+                create: {
+                    hash: await getPasswordHash(password)
+                }
+            }
+        },
+        select: {
+            id: true
+        }
+    })
+
+    return newUser.id
 }
 
 export async function logout(request: Request) {
