@@ -21,24 +21,35 @@ export async function getUserId(request: Request) {
         return null
     }
 
-    return sessionId
+    const session = await prisma.session.findUnique({
+        where: { id: sessionId, expirationDate: { gt: new Date() } },
+        select: {
+            userId: true,
+        }
+    })
+
+	if (!session?.userId) {
+		throw await logout(request)
+	}
+
+    return session.userId
 
 }
 
 export async function requireUser(request: Request) {
-    const sessionId = await getUserId(request)
+    const userId = await getUserId(request)
 
-    if (!sessionId) {
+    if (!userId) {
         throw redirect('/login')
     }
 
-    return sessionId
+    return userId
 }
 
 export async function requireAnonymous(request: Request) {
-    const sessionId = await getUserId(request)
+    const userId = await getUserId(request)
 
-    if (sessionId) {
+    if (userId) {
         throw redirect('/')
     }
 }
@@ -71,6 +82,30 @@ export async function getPasswordHash(password: string) {
 	return hash
 }
 
+export async function login({
+    username, 
+    password
+}: {
+    username: User['username'],
+    password: string
+}) {
+    const userId = await verifyUserWithPassword(username, password)
+
+    if (!userId) return null
+
+    // create a session
+    const session = await prisma.session.create({
+        data: {
+            userId: userId.id,
+            expirationDate: getSessionExpireDate()
+        },
+        select: { id: true, expirationDate: true },
+
+    })
+
+    return session
+}
+
 export async function signup({
     username,
     name,
@@ -82,27 +117,37 @@ export async function signup({
     email: User['email'],
     password: string,
 }) {
-    const newUser = await prisma.user.create({
+
+    const session = await prisma.session.create({
         data: {
-            username,
-            name,
-            email,
-            password: {
+            user: {
                 create: {
-                    hash: await getPasswordHash(password)
+                    username,
+                    name,
+                    email,
+                    password: {
+                        create: {
+                            hash: await getPasswordHash(password)
+                        }
+                    }
                 }
-            }
+            },
+            expirationDate: getSessionExpireDate()
         },
-        select: {
-            id: true
-        }
+		select: { id: true, expirationDate: true },
     })
 
-    return newUser.id
+    return session
 }
 
 export async function logout(request: Request) {
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))
+    const sessionId = cookieSession.get(sessionKey)
+
+    // delete session if exists
+    if (sessionId) {
+		void prisma.session.deleteMany({ where: { id: sessionId } }).catch(() => {})
+    }
     
     throw redirect('/', {
         headers: {

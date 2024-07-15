@@ -5,7 +5,7 @@ import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { Form, redirect, useActionData, useLoaderData } from "@remix-run/react";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
-import { getSessionExpireDate, requireAnonymous, sessionKey, signup } from "~/utils/auth.server";
+import { requireAnonymous, sessionKey, signup } from "~/utils/auth.server";
 import { onboardingEmailSessionKey, verifySessionStorage } from "~/utils/verification.server";
 import { prisma } from "~/utils/db.server";
 import { sessionStorage } from "~/utils/session.server";
@@ -77,14 +77,14 @@ export async function action({ request }: ActionFunctionArgs) {
                 return z.NEVER;
             }
         }).transform(async (data) => {
-            const userId = await signup({
+            const session = await signup({
                 ...data,
                 email
             })
 
             return {
                 ...data,
-                userId
+                session
             }
 
         }),
@@ -96,12 +96,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // set session in cookie then redirect users
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))  
-    cookieSession.set(sessionKey, submission.value.userId)
+    cookieSession.set(sessionKey, submission.value.session.id)
 
     return redirect('/', {
         headers: {
             'set-cookie': await sessionStorage.commitSession(cookieSession, {
-                expires: submission.value.remember ? getSessionExpireDate() : undefined,
+                expires: submission.value.remember ? submission.value.session.expirationDate : undefined,
             })
         }
     })}

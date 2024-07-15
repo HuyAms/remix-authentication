@@ -5,7 +5,7 @@ import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { Form, Link, redirect, useActionData } from "@remix-run/react";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
-import { getSessionExpireDate, requireAnonymous, sessionKey, verifyUserWithPassword } from "~/utils/auth.server";
+import { getSessionExpireDate, login, requireAnonymous, sessionKey } from "~/utils/auth.server";
 import { sessionStorage } from "~/utils/session.server";
 
 const LoginContainer = styled(Container)({
@@ -32,9 +32,12 @@ export async function action({ request }: ActionFunctionArgs) {
     const submission = await parseWithZod(formData, {
         schema: LoginSchema.transform(async (data, ctx) => {
 
-            const user = await verifyUserWithPassword(data.username, data.password)
+            const session = await login({
+                username: data.username,
+                password: data.password
+            })
 
-            if (!user) {
+            if (!session) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     message: 'Invalid username or password',
@@ -43,9 +46,11 @@ export async function action({ request }: ActionFunctionArgs) {
                 return z.NEVER
             }
 
+            // create session
+
             return {
                 ...data,
-                userId: user.id
+                session: session
             }
 
         }),
@@ -61,12 +66,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
     // set session in cookie then redirect users
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))  
-    cookieSession.set(sessionKey, submission.value.userId)
+    cookieSession.set(sessionKey, submission.value.session.id)
 
     return redirect('/', {
         headers: {
             'set-cookie': await sessionStorage.commitSession(cookieSession, {
-                expires: submission.value.remember ? getSessionExpireDate() : undefined,
+                expires: submission.value.remember ? submission.value.session.expirationDate : undefined,
             })
         }
     })
