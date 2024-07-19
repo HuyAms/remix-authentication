@@ -6,8 +6,10 @@ import { Form, useActionData } from "@remix-run/react";
 import { ActionFunctionArgs, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { EmailSchema} from "~/utils/user-validation";
 import { requireAnonymous} from "~/utils/auth.server";
-import { onboardingEmailSessionKey, verifySessionStorage } from "~/utils/verification.server";
+import * as E from '@react-email/components'
 import { prisma } from "~/utils/db.server";
+import { sendEmail } from "~/utils/email.server";
+import { prepareVerification } from "~/utils/verify.server";
 
 const Container = styled(MUIContainer)({
     display: 'flex',
@@ -53,19 +55,28 @@ export async function action({ request }: ActionFunctionArgs) {
         return submission.reply();
     }
 
-    // TODO: verify this email
-
-    // set email to cookie and redirect to the onboarding screen
-    const cookieSession = await verifySessionStorage.getSession(request.headers.get('Cookie'));
-    cookieSession.set(onboardingEmailSessionKey, submission.value.email)
-
-    console.log('redirecting to onboarding')
-
-    return redirect('/onboarding', {
-        headers: {
-            'set-cookie': await verifySessionStorage.commitSession(cookieSession)
-        }
+    const { otp, verifyUrl, redirectTo} = await prepareVerification({
+        period: 60 * 10, // 10 mins
+        request,
+        type: "onboarding",
+        target: submission.value.email,
+        redirectTo: '/onboarding',
     })
+
+    const response = await sendEmail({
+		to: submission.value.email,
+		subject: `Email verification`,
+		react: <SignupEmail onboardingUrl={verifyUrl.toString()} otp={otp} />,
+	})
+
+    if (response.status === "error") {
+        return submission.reply({
+            formErrors: ['There was an error sending the email']
+        });
+    }
+
+    // redirect to verify screen
+    return redirect(redirectTo.toString())
 }
 
 function getFirstErrorText(errors: string[] | undefined) {
@@ -76,7 +87,7 @@ function getFirstErrorText(errors: string[] | undefined) {
     return ""
 }
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
 
     const actionData = useActionData<typeof action>()
 
@@ -113,3 +124,30 @@ export default function LoginScreen() {
     );
   }
   
+
+export function SignupEmail({
+	onboardingUrl,
+	otp,
+}: {
+	onboardingUrl: string
+	otp: string
+}) {
+	return (
+		<E.Html lang="en" dir="ltr">
+			<E.Container>
+				<h1>
+					<E.Text>Welcome to Remix Authentication!</E.Text>
+				</h1>
+				<p>
+					<E.Text>
+						Your verification code: <strong>{otp}</strong>
+					</E.Text>
+				</p>
+				<p>
+					<E.Text>Or click the link to get started:</E.Text>
+				</p>
+				<E.Link href={onboardingUrl}>{onboardingUrl}</E.Link>
+			</E.Container>
+		</E.Html>
+	)
+}

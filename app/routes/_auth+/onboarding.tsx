@@ -1,14 +1,14 @@
-import { Container as MUIContainer, Stack, Typography, TextField, FormControlLabel, Checkbox, Button, styled } from "@mui/material";
-import { z } from 'zod';
-import { useForm, getInputProps } from '@conform-to/react';
-import { parseWithZod, getZodConstraint } from '@conform-to/zod';
-import { Form, redirect, useActionData, useLoaderData } from "@remix-run/react";
+import { getInputProps, useForm } from '@conform-to/react';
+import { getZodConstraint, parseWithZod } from '@conform-to/zod';
+import { Button, Checkbox, FormControlLabel, Container as MUIContainer, Stack, TextField, Typography, styled } from "@mui/material";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
+import { Form, redirect, useActionData, useLoaderData } from "@remix-run/react";
+import { z } from 'zod';
 import { requireAnonymous, sessionKey, signup } from "~/utils/auth.server";
-import { onboardingEmailSessionKey, verifySessionStorage } from "~/utils/verification.server";
 import { prisma } from "~/utils/db.server";
 import { sessionStorage } from "~/utils/session.server";
+import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
+import { onboardingEmailSessionKey, verifySessionStorage } from "~/utils/verification.server";
 
 const Container = styled(MUIContainer)({
     display: 'flex',
