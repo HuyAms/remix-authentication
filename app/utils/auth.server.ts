@@ -140,6 +140,19 @@ export async function signup({
     return session
 }
 
+export async function resetPassword({username, password}: {username: User['username'], password: string}) {
+   return prisma.user.update({
+        where: {username: username},
+        data: {
+            password: {
+                update: {
+                    hash: await getPasswordHash(password)
+                }
+            }
+        }
+    }) 
+}
+
 export async function logout(request: Request) {
     const cookieSession = await sessionStorage.getSession(request.headers.get('Cookie'))
     const sessionId = cookieSession.get(sessionKey)

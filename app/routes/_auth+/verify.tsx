@@ -13,13 +13,12 @@ import { Form, useActionData, useSearchParams } from "@remix-run/react";
 import { z } from 'zod';
 import { requireAnonymous } from "~/utils/auth.server";
 import { prisma } from '~/utils/db.server';
-import { onboardingEmailSessionKey, verifySessionStorage } from "~/utils/verification.server";
+import { onboardingEmailSessionKey, resetPasswordUsernameSessionKey, verifySessionStorage } from "~/utils/verification.server";
 import { isCodeValid } from '~/utils/verify.server';
 
-const types = ['onboarding'] as const
+const types = ['onboarding', 'reset-password'] as const
 export const VerificationTypeSchema = z.enum(types)
 export type VerificationTypes = z.infer<typeof VerificationTypeSchema>
-
 
 // we attach these to the URL as query params
 // so when users click on the link in the email and go to the app
@@ -43,11 +42,24 @@ export const VerifySchema = z.object({
     [typeQueryParam]: VerificationTypeSchema,
     [redirectToQueryParam]: z.string().optional(),
 });
+
 async function handleOnboardingVerification(request: Request, email: string) {
     const cookieSession = await verifySessionStorage.getSession(request.headers.get('Cookie'));
     cookieSession.set(onboardingEmailSessionKey, email)
 
     return redirect('/onboarding', {
+        headers: {
+            'set-cookie': await verifySessionStorage.commitSession(cookieSession)
+        }
+    })
+
+}
+
+async function handleResetPasswordVerification(request: Request, email: string) {
+    const cookieSession = await verifySessionStorage.getSession(request.headers.get('Cookie'));
+    cookieSession.set(resetPasswordUsernameSessionKey, email)
+
+    return redirect('/reset-password', {
         headers: {
             'set-cookie': await verifySessionStorage.commitSession(cookieSession)
         }
@@ -88,6 +100,9 @@ async function validateRequest(request: Request, body: URLSearchParams | FormDat
     switch(submission.value[typeQueryParam]) {
         case 'onboarding': {
             return await handleOnboardingVerification(request, submission.value[targetQueryParam])
+        }
+        case 'reset-password': {
+            return await handleResetPasswordVerification(request, submission.value[targetQueryParam])
         }
     }
 }

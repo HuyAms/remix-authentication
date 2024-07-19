@@ -122,7 +122,7 @@ export default function LoginScreen() {
                     />
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <FormControlLabel control={<Checkbox {...getInputProps(fields.remember, {type: "checkbox"})} />} label="Remember me" />
-                        <Link to="/">
+                        <Link to="/forgot-password">
                             <Typography variant="body1">Forgot password?</Typography>
                         </Link>
                     </Stack>
