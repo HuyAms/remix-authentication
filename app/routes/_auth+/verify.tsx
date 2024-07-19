@@ -43,13 +43,6 @@ export const VerifySchema = z.object({
     [typeQueryParam]: VerificationTypeSchema,
     [redirectToQueryParam]: z.string().optional(),
 });
-
-export async function loader({request}: LoaderFunctionArgs) {
-    await requireAnonymous(request)
-
-    return {}
-}
-
 async function handleOnboardingVerification(request: Request, email: string) {
     const cookieSession = await verifySessionStorage.getSession(request.headers.get('Cookie'));
     cookieSession.set(onboardingEmailSessionKey, email)
@@ -62,10 +55,9 @@ async function handleOnboardingVerification(request: Request, email: string) {
 
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-    const formData = await request.formData();
+async function validateRequest(request: Request, body: URLSearchParams | FormData,) {
 
-    const submission = parseWithZod(formData, {schema: VerifySchema});
+    const submission = parseWithZod(body, {schema: VerifySchema});
 
     if (submission.status !== 'success') {
         return submission.reply();
@@ -99,6 +91,20 @@ export async function action({ request }: ActionFunctionArgs) {
         }
     }
 }
+
+export async function action({ request }: ActionFunctionArgs) {
+    const formData = await request.formData();
+    return await validateRequest(request, formData)
+
+}
+
+export async function loader({request}: LoaderFunctionArgs) {
+    await requireAnonymous(request)
+	const params = new URL(request.url).searchParams
+
+    return await validateRequest(request, params)
+}
+
 
 function getFirstErrorText(errors: string[] | undefined) {
     if (errors && errors.length > 0) {
