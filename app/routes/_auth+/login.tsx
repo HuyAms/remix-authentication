@@ -5,7 +5,7 @@ import { parseWithZod, getZodConstraint } from '@conform-to/zod';
 import { Form, Link, redirect, useActionData } from "@remix-run/react";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { PasswordSchema, UserNameSchema } from "~/utils/user-validation";
-import { getSessionExpireDate, login, requireAnonymous, sessionKey } from "~/utils/auth.server";
+import { login, requireAnonymous, sessionKey } from "~/utils/auth.server";
 import { sessionStorage } from "~/utils/session.server";
 
 const LoginContainer = styled(Container)({
